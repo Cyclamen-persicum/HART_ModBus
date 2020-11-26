@@ -10,7 +10,6 @@ void ModBus::change2str(int num_)
 ModBus::~ModBus()
 {
     numTwo_.clear();
-    //TODO:这里以后要清理数组
     str_.clear();
     res_.clear();
     stdMap.clear();
@@ -40,15 +39,15 @@ void ModBus::calc()
     // power为小数点移动的位数
     std::string power_str = numTwo_.substr(p, 8);
     int power = stoi(power_str, nullptr, 2) - 127;
-    if (power_str == "00000000")
-        power = 0;
     p = 9;
     std::string integer_str;
     int integer = 0;
     std::string decimal_str;
     double decimal = 0.0;
-    //幂数大于0
-    if (power > 0)
+    //幂数大于等于0
+    //注：等于0情况未经检验
+    //TODO:验证幂数=0情况
+    if (power >= 0)
     {
         integer_str = "1" + numTwo_.substr(p, power);
         p += power;
@@ -60,6 +59,8 @@ void ModBus::calc()
         }
     }
     //幂数小于0
+    //这段代码未经检验，谨慎使用
+    //TODO:验证幂数<0的情况
     else if (power < 0)
     {
         decimal_str = std::string(-(power - 1), '0') + "1" + numTwo_.substr(9);
@@ -70,8 +71,7 @@ void ModBus::calc()
                 decimal += pow(2, -(i + 1));
         }
     }
-    // TODO: ==0情况视情况而定
-    flag ? res_.emplace_back(double(integer) + decimal) : res_.emplace_back(-double(integer) + decimal);
+    res_.emplace_back(flag ? double(integer) + decimal : -double(integer) + decimal);
 }
 
 void ModBus::calccrc()
