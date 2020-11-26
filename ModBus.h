@@ -1,32 +1,44 @@
 #pragma once
-#ifndef MODBUS__H
-#define MODBUS__H
+#ifndef MODBUS_H
+#define MODBUS_H
 
 #include <string>
+#include <unordered_map>
+#include <vector>
 
 class ModBus
 {
-    //½«Êı¾İ×ªÎª¶ş½øÖÆ×Ö·û´®
+    //å°†æ•°æ®è½¬ä¸ºäºŒè¿›åˆ¶å­—ç¬¦ä¸²
     void change2str(int);
-    //¼ÆËã×îÖÕ¸¡µãÊı
-    double calc(std::string);
-    //±ê×¼CRC×ª»»
+    //è®¡ç®—æœ€ç»ˆæµ®ç‚¹æ•°
+    void calc();
+    //æ ‡å‡†CRCè½¬æ¢
     void calccrc();
 public:
     ModBus(std::string str);
-    //µÃµ½×ª»»ºóµÄÊı¾İ
-    double getRes() { return calc(numTwo); }
     ~ModBus();
-    //½«modbus±¨ÎÄ×ª»»Îª×Ö·ûÊı×é£¬±ãÓÚCRC¼ÆËã
+    //å°†modbusæŠ¥æ–‡è½¬æ¢ä¸ºå­—ç¬¦æ•°ç»„ï¼Œä¾¿äºCRCè®¡ç®—
     void change2char(std::string);
-    //±È¶ÔCRC
+    //æ¯”å¯¹CRC
     bool CRC(unsigned char*, int);
+    //å°†æŠ¥æ–‡ä¸­çš„æ•°æ®è½¬ä¸º5ä¸ªintï¼Œè°ƒç”¨calc
+    void data2int();
+public:
 private:
-    unsigned char data[25];
-    std::string numTwo;
+    bool flagCRC;
+    unsigned char data_[25];
+    std::string numTwo_;
     int num_;
     std::string str_;
-    unsigned short crcStd = 0;
+    unsigned short crcStd;
+    std::vector<double> res_;
+    std::unordered_map<char, unsigned short> stdMap
+        = { {'0',0},{'1',1},{'2',2},{'3',3},
+            {'4',4},{'5',5},{'6',6},{'7',7},
+            {'8',8},{'9',9},{'a',10},{'b',11},
+            {'c',12},{'d',13},{'e',14},{'f',15},
+            {'A',10},{'B',11},{'C',12},{'D',13},
+            {'E',14},{'F',15} };
 };
 #endif // !MODBUS__H
 

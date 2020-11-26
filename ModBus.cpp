@@ -1,16 +1,19 @@
-#include "ModBus.h"
+#include "modbus.h"
+#include <cmath>
 
 void ModBus::change2str(int num_)
 {
     for (int i = 31; i >= 0; --i)
-        numTwo += (((num_ >> i) & 1) + '0');
-    numTwo += '\0';
+        numTwo_ += (((num_ >> i) & 1) + '0');
 }
 
 ModBus::~ModBus()
 {
-    numTwo.clear();
-    //TODO:ÕâÀïÒÔºóÒªÇåÀíÊı×é
+    numTwo_.clear();
+    //TODO:è¿™é‡Œä»¥åè¦æ¸…ç†æ•°ç»„
+    str_.clear();
+    res_.clear();
+    stdMap.clear();
 }
 
 void ModBus::change2char(std::string str)
@@ -20,59 +23,55 @@ void ModBus::change2char(std::string str)
     for (int i = 0; i < size; i += 2)
     {
         int temp;
-        if (str[i] >= '0' && str[i] <= '9')
-            temp = str[i] - '0';
-        else if (str[i] >= 'a' && str[i] <= 'z')
-            temp = str[i] - 'a' + 10;
-        if (str[i + 1] >= '0' && str[i + 1] <= '9')
-            temp = str[i + 1] - '0' + 16 * temp;
-        else if (str[i + 1] >= 'a' && str[i + 1] <= 'z')
-            temp = str[i + 1] - 'a' + 10 + 16 * temp;
+        temp = stdMap[str[i]];
+        temp = stdMap[str[i + 1]] + 16 * temp;
         temp += 0x00;
-        data[cur++] = temp;
+        data_[cur++] = temp;
     }
 }
 
-double ModBus::calc(std::string numTwo)
+void ModBus::calc()
 {
-    // pÖ¸Ïòµ±Ç°Î»ÖÃ
+    // pæŒ‡å‘å½“å‰ä½ç½®
     auto p = 0;
-    // flagÕæÔòÎªÕı£¬¼ÙÔòÎª¸º
-    bool flag = numTwo[0] == '0' ? 1 : 0;
+    // flagçœŸåˆ™ä¸ºæ­£ï¼Œå‡åˆ™ä¸ºè´Ÿ
+    bool flag = numTwo_[0] == '0' ? 1 : 0;
     p++;
-    // powerÎªĞ¡ÊıµãÒÆ¶¯µÄÎ»Êı
-    std::string power_str = numTwo.substr(p, 8);
+    // powerä¸ºå°æ•°ç‚¹ç§»åŠ¨çš„ä½æ•°
+    std::string power_str = numTwo_.substr(p, 8);
     int power = stoi(power_str, nullptr, 2) - 127;
+    if (power_str == "00000000")
+        power = 0;
     p = 9;
     std::string integer_str;
     int integer = 0;
     std::string decimal_str;
     double decimal = 0.0;
-    //ÃİÊı´óÓÚ0
+    //å¹‚æ•°å¤§äº0
     if (power > 0)
     {
-        integer_str = "1" + numTwo.substr(p, power);
+        integer_str = "1" + numTwo_.substr(p, power);
         p += power;
         integer = stoi(integer_str, nullptr, 2);
         for (; p != 32; ++p)
         {
-            if (numTwo[p] == '1')
+            if (numTwo_[p] == '1')
                 decimal += pow(2, -(p - 8 - power));
         }
     }
-    //ÃİÊıĞ¡ÓÚ0
+    //å¹‚æ•°å°äº0
     else if (power < 0)
     {
-        decimal_str = std::string(-(power - 1), '0') + "1" + numTwo.substr(9);
+        decimal_str = std::string(-(power - 1), '0') + "1" + numTwo_.substr(9);
         int size = decimal_str.size();
-        for (int i=0; p < size; ++i)
+        for (int i = 0; p < size; ++i)
         {
-            if (numTwo[i] == '1')
+            if (numTwo_[i] == '1')
                 decimal += pow(2, -(i + 1));
         }
     }
-    // TODO: ==0Çé¿öÊÓÇé¿ö¶ø¶¨
-    return flag ? double(integer) + decimal : -double(integer) + decimal;
+    // TODO: ==0æƒ…å†µè§†æƒ…å†µè€Œå®š
+    flag ? res_.emplace_back(double(integer) + decimal) : res_.emplace_back(-double(integer) + decimal);
 }
 
 void ModBus::calccrc()
@@ -81,17 +80,22 @@ void ModBus::calccrc()
     for (int i = 0; i < 4; ++i)
     {
         unsigned short temp;
-        if (crcStd_str[i] >= '0' && crcStd_str[i] <= '9')
-            temp = crcStd_str[i] - '0';
-        else if (crcStd_str[i] >= 'a' && crcStd_str[i] <= 'z')
-            temp = crcStd_str[i] - 'a' + 10;
+        temp = stdMap[crcStd_str[i]];
         crcStd += pow(16, 3 - i) * temp;
     }
 }
 
 ModBus::ModBus(std::string str) : str_(str)
 {
+    flagCRC = false;
+    crcStd = 0;
     calccrc();
+    change2char(str_);
+    if (CRC(data_, 23))
+    {
+        flagCRC = true;
+        data2int();
+    }
 }
 
 bool ModBus::CRC(unsigned char* ptr, int len)
@@ -115,7 +119,24 @@ bool ModBus::CRC(unsigned char* ptr, int len)
         }
         ptr++;
     }
-    if(crc==crcStd)
+    if (crc == crcStd)
         return true;
     return false;
+}
+
+void ModBus::data2int()
+{
+    auto p = 6;
+    while (p < 46)
+    {
+        int temp = 0;
+        for (int i = 0; i < 8; ++i)
+            temp += pow(16, 7 - i) * stdMap[str_[p++]];
+        change2str(temp);
+        if (temp == 0)
+            res_.emplace_back(0.0);
+        else
+            calc();
+        numTwo_ = "";
+    }
 }
