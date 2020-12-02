@@ -24,9 +24,9 @@ public:
     bool CRC(unsigned char*, int);
     //将报文中的数据转为5个int，调用calc
     void data2int();
+    //获取最终数据
+    std::vector<double> getRes() {return res_;}
 public:
-    //最终结果数据向量
-    std::vector<double> res_;
 private:
     //标识位，标记是否通过CRC检测
     bool flagCRC;
@@ -38,6 +38,8 @@ private:
     int num_;
     //报文字符串
     std::string str_;
+    //最终结果数据向量
+    std::vector<double> res_;
     //报文所携带的CRC unsigned short显示
     unsigned short crcStd;
     //十六进制十进制转换字典
